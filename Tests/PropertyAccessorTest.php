@@ -11,9 +11,12 @@
 
 namespace Symfony\Component\PropertyAccess\Tests;
 
+use Doctrine\Common\Annotations\AnnotationReader;
 use PHPUnit\Framework\TestCase;
 use Symfony\Component\Cache\Adapter\ArrayAdapter;
 use Symfony\Component\PropertyAccess\Exception\NoSuchIndexException;
+use Symfony\Component\PropertyAccess\Mapping\Factory\LazyLoadingMetadataFactory;
+use Symfony\Component\PropertyAccess\Mapping\Loader\AnnotationLoader;
 use Symfony\Component\PropertyAccess\PropertyAccessor;
 use Symfony\Component\PropertyAccess\Tests\Fixtures\ReturnTyped;
 use Symfony\Component\PropertyAccess\Tests\Fixtures\TestClass;
@@ -201,6 +204,18 @@ class PropertyAccessorTest extends TestCase
         $this->propertyAccessor->getValue($objectOrArray, $path);
     }
 
+    public function testGetWithCustomGetter()
+    {
+        $this->propertyAccessor = new PropertyAccessor(false, false, null, new LazyLoadingMetadataFactory(new AnnotationLoader(new AnnotationReader())));
+        $this->assertSame('webmozart', $this->propertyAccessor->getValue(new TestClass('webmozart'), 'customGetterSetter'));
+    }
+
+    public function testGetWithCustomGetterMethodAnnotation()
+    {
+        $this->propertyAccessor = new PropertyAccessor(false, false, null, new LazyLoadingMetadataFactory(new AnnotationLoader(new AnnotationReader())));
+        $this->assertSame(200, $this->propertyAccessor->getValue(new TestClass('webmozart', 10, 20), 'total'));
+    }
+
     /**
      * @dataProvider getValidPropertyPaths
      */
@@ -299,6 +314,28 @@ class PropertyAccessorTest extends TestCase
     public function testSetValueThrowsExceptionIfNotObjectOrArray($objectOrArray, $path)
     {
         $this->propertyAccessor->setValue($objectOrArray, $path, 'value');
+    }
+
+    public function testSetValueWithCustomSetter()
+    {
+        $this->propertyAccessor = new PropertyAccessor(false, false, null, new LazyLoadingMetadataFactory(new AnnotationLoader(new AnnotationReader())));
+
+        $custom = new TestClass('webmozart');
+
+        $this->propertyAccessor->setValue($custom, 'customGetterSetter', 'it works!');
+
+        $this->assertEquals('it works!', $custom->customGetterTest());
+    }
+
+    public function testSetValueWithCustomSetterMethodAnnotation()
+    {
+        $this->propertyAccessor = new PropertyAccessor(false, false, null, new LazyLoadingMetadataFactory(new AnnotationLoader(new AnnotationReader())));
+
+        $custom = new TestClass('webmozart', 10, 20);
+
+        $this->propertyAccessor->setValue($custom, 'total', 5);
+
+        $this->assertEquals(5, $custom->getTotal());
     }
 
     public function testGetValueWhenArrayValueIsNull()
@@ -581,6 +618,9 @@ class PropertyAccessorTest extends TestCase
         $this->propertyAccessor->setValue($object, 'countable', 'This is a string, \Countable expected.');
     }
 
+    /**
+     * @requires PHP 7.0
+     */
     public function testAnonymousClassRead()
     {
         $value = 'bar';
@@ -592,6 +632,9 @@ class PropertyAccessorTest extends TestCase
         $this->assertEquals($value, $propertyAccessor->getValue($obj, 'foo'));
     }
 
+    /**
+     * @requires PHP 7.0
+     */
     public function testAnonymousClassWrite()
     {
         $value = 'bar';
@@ -636,6 +679,7 @@ class PropertyAccessorTest extends TestCase
     }
 
     /**
+     * @requires PHP 7.0
      * @expectedException \TypeError
      */
     public function testThrowTypeErrorInsideSetterCall()
@@ -646,6 +690,8 @@ class PropertyAccessorTest extends TestCase
     }
 
     /**
+     * @requires PHP 7
+     *
      * @expectedException \TypeError
      */
     public function testDoNotDiscardReturnTypeError()
